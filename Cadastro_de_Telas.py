@@ -46,14 +46,14 @@ def verificar_atualizacao():
             versao_local = f.read().strip()
 
         if versao_remota > versao_local:
-            print(f"Nova versão disponível: {versao_remota}")
+            messagebox.showinfo('Informacao',f"Nova versão disponível: {versao_remota}")
             return True
         else:
-            print("Você já está usando a versão mais recente.")
+            messagebox.showinfo('Informacao',"Você já está usando a versão mais recente.")
             return False
 
     except Exception as e:
-        print(f"Erro ao verificar atualizações: {e}")
+        messagebox.showinfo('Erro', "Erro ao verificar atualizações: {e}")
         return False
 
 # Função para baixar um arquivo do GitHub
@@ -85,11 +85,6 @@ def atualizar_programa():
         # Reiniciar o programa
         print("Programa atualizado. Reinicie para aplicar as mudanças.")
         sys.exit()
-
-# Verificar se há atualizações ao iniciar o programa
-atualizar_programa()
-
-
 
 def conectar_banco():
     # Conectar ao banco de dados (ou criar se não existir)
@@ -1296,6 +1291,6 @@ carregar_cadastro()
 atualizar_label()
 fazer_backup_banco()
 listar_telas()
-
+atualizar_programa()
 # Iniciar o loop principal
 root.mainloop()
