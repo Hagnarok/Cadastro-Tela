@@ -22,8 +22,8 @@ if not os.path.exists(pasta_documentos):
 # Caminho completo para o arquivo 'versao.txt' local
 arquivo_versao_local = os.path.join(pasta_documentos, 'versao.txt')
 
-# URL do repositório no GitHub (substitua pelo seu)
-URL_REPOSITORIO = 'https://github.com/Hagnarok/Cadastro-Tela.git'
+# URL do repositório no GitHub (ajustado)
+URL_REPOSITORIO = 'https://raw.githubusercontent.com/Hagnarok/Cadastro-Tela/main/'
 
 # Função para verificar se há uma nova versão disponível
 def verificar_atualizacao():
@@ -88,6 +88,7 @@ def atualizar_programa():
 
 # Verificar se há atualizações ao iniciar o programa
 atualizar_programa()
+
 
 
 def conectar_banco():
