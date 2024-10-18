@@ -11,6 +11,7 @@ import shutil
 import sys
 import sqlite3
 import requests
+from packaging import version  # Comparação de versões mais segura
 
 # Caminho para a pasta "Cadastro Telas" dentro de "Documentos"
 pasta_documentos = os.path.join(os.path.expanduser("~"), "Documents", "Cadastro Telas")
@@ -25,18 +26,27 @@ arquivo_versao_local = os.path.join(pasta_documentos, 'versao.txt')
 # URL do repositório no GitHub (ajustado)
 URL_REPOSITORIO = 'https://raw.githubusercontent.com/Hagnarok/Cadastro-Tela/main/'
 
+
 # Função para verificar se há uma nova versão disponível
 def verificar_atualizacao():
     try:
         # URL para o arquivo de versão no GitHub
         url_versao_remota = URL_REPOSITORIO + 'versao.txt'
+        print(f"Verificando a URL: {url_versao_remota}")  # Depuração
 
         # Ler a versão remota
         resposta = requests.get(url_versao_remota)
-        versao_remota = resposta.text.strip()
+        print(f"Status da requisição: {resposta.status_code}")  # Depuração do status
+
+        if resposta.status_code == 200:
+            versao_remota = resposta.text.strip()
+            print(f"Versão remota: {versao_remota}")  # Depuração da versão remota
+        else:
+            raise Exception(f"Erro ao acessar a URL {url_versao_remota}. Status: {resposta.status_code}")
 
         # Verificar se o arquivo `versao.txt` existe localmente
         if not os.path.exists(arquivo_versao_local):
+            print(f"Arquivo local {arquivo_versao_local} não existe. Criando arquivo com a versão '0.0.0'.")  # Depuração
             # Se não existir, criar o arquivo com a versão '0.0.0'
             with open(arquivo_versao_local, 'w') as f:
                 f.write('0.0.0')
@@ -44,18 +54,20 @@ def verificar_atualizacao():
         # Ler a versão local do arquivo `versao.txt`
         with open(arquivo_versao_local, 'r') as f:
             versao_local = f.read().strip()
+            print(f"Versão local: {versao_local}")  # Depuração da versão local
 
-        if versao_remota > versao_local:
-            messagebox.showinfo('Informacao',f"Nova versão disponível: {versao_remota}")
+        # Comparar versões corretamente
+        if version.parse(versao_remota) > version.parse(versao_local):
+            messagebox.showinfo('Informação', f"Nova versão disponível: {versao_remota}")
             return True
         else:
-            messagebox.showinfo('Informacao',"Você já está usando a versão mais recente.")
+            messagebox.showinfo('Informação', "Você já está usando a versão mais recente.")
             return False
 
     except Exception as e:
-        messagebox.showinfo('Erro', "Erro ao verificar atualizações: {e}")
+        messagebox.showerror('Erro', f"Erro ao verificar atualizações: {e}")
         return False
-
+    
 # Função para baixar um arquivo do GitHub
 def baixar_arquivo(nome_arquivo):
     try:
@@ -66,11 +78,11 @@ def baixar_arquivo(nome_arquivo):
             caminho_local = os.path.join(pasta_documentos, nome_arquivo)  # Salva o arquivo na pasta "Cadastro Telas"
             with open(caminho_local, 'wb') as f:
                 f.write(resposta.content)
-            print(f"{nome_arquivo} atualizado com sucesso!")
+            messagebox.showinfo('Informação', f"{nome_arquivo} atualizado com sucesso!")
         else:
-            print(f"Erro ao baixar {nome_arquivo}.")
+            messagebox.showinfo('Erro', f"Erro ao baixar {nome_arquivo}. Status: {resposta.status_code}")
     except Exception as e:
-        print(f"Erro ao baixar o arquivo {nome_arquivo}: {e}")
+        messagebox.showinfo('Erro', f"Erro ao baixar o arquivo {nome_arquivo}: {e}")
 
 # Função para realizar a atualização
 def atualizar_programa():
@@ -83,7 +95,7 @@ def atualizar_programa():
             f.write(requests.get(URL_REPOSITORIO + 'versao.txt').text.strip())
 
         # Reiniciar o programa
-        print("Programa atualizado. Reinicie para aplicar as mudanças.")
+        messagebox.showinfo('Informação', "Programa atualizado. Por favor, reinicie para aplicar as mudanças.")
         sys.exit()
 
 def conectar_banco():
