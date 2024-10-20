@@ -30,106 +30,12 @@ arquivo_versao_local = os.path.join(pasta_documentos, 'versao.txt')
 # Caminho completo para o arquivo 'atualizado.py' local
 caminho_atualizado = os.path.join(pasta_documentos, 'atualizado.py')
 
+# Caminho do executável
+caminho_exe_atualizado = os.path.join(pasta_documentos, 'atualizado.exe')
+
 # URL do repositório no GitHub (ajustado)
 URL_REPOSITORIO = 'https://raw.githubusercontent.com/Hagnarok/Cadastro-Tela/main/'
 
-# Função para gerar o arquivo atualizado.py e convertê-lo em EXE
-def criar_atualizado_py():
-    conteudo = """\
-# -*- coding: utf-8 -*-
-import os
-import shutil
-import time
-import psutil
-import tkinter as tk
-from tkinter import ttk
-
-# Função para fechar o EXE se ele estiver em execução
-def fechar_exe_se_em_execucao(nome_exe):
-    for proc in psutil.process_iter():
-        try:
-            if nome_exe.lower() in proc.name().lower():
-                proc.terminate()
-                proc.wait()
-                time.sleep(2)
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            pass
-
-# Função para substituir o EXE
-def substituir_exe(progress):
-    nome_exe = "Cadastro de Telas.exe"
-    caminho_exe_area_trabalho = os.path.join(os.path.expanduser("~"), "Desktop", nome_exe)
-    caminho_exe_novo = os.path.join(os.path.expanduser("~"), "Documents", "Cadastro Telas", "Cadastro de Telas Novo.exe")
-
-    if os.path.exists(caminho_exe_novo):
-        progress['value'] = 20
-        root.update_idletasks()
-
-        fechar_exe_se_em_execucao(nome_exe)
-        
-        progress['value'] = 50
-        root.update_idletasks()
-
-        shutil.move(caminho_exe_novo, caminho_exe_area_trabalho)
-        progress['value'] = 90
-        root.update_idletasks()
-
-        time.sleep(2)
-        os.startfile(caminho_exe_area_trabalho)
-
-        time.sleep(1)
-        root.destroy()  # Fechar a janela após a conclusão
-    else:
-        print("O novo EXE não foi encontrado em Documentos.")
-        root.destroy()
-
-# Interface gráfica com barra de progresso
-def iniciar_interface_atualizacao():
-    global root
-    root = tk.Tk()
-    root.title("Atualizando Programa")
-    root.geometry("400x100")
-    root.resizable(False, False)
-
-    label = tk.Label(root, text="Programa atualizando, aguarde...", font=("Arial", 12))
-    label.pack(pady=10)
-
-    progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
-    progress.pack(pady=10)
-
-    root.after(100, lambda: substituir_exe(progress))
-
-    root.mainloop()
-
-if __name__ == "__main__":
-    iniciar_interface_atualizacao()
-"""
-    with open(caminho_atualizado, 'w', encoding='utf-8') as f:
-        f.write(conteudo)
-    print(f"Arquivo 'atualizado.py' criado em: {caminho_atualizado}")
-
-    # Caminho da pasta "Cadastro Telas" dentro de "Documentos"
-    distpath = os.path.join(os.path.expanduser("~"), "Documents", "Cadastro Telas")
-
-    # Executa o PyInstaller e especifica a pasta de saída para o exe
-    print("Iniciando a criação do executável...")
-    print(f"Caminho do Python: {sys.executable}")
-
-    result = subprocess.run(
-        [sys.executable, '-m', 'PyInstaller', '--onefile', '--name', 'atualizado', '--distpath', distpath, caminho_atualizado],
-        capture_output=True, text=True
-    )
-
-    # Verifica se houve erro na execução do PyInstaller
-    if result.returncode != 0:
-        print("Erro ao executar PyInstaller:")
-        print(result.stderr)
-    else:
-        print("Executável criado com sucesso:")
-        print(result.stdout)
-
-# Chama a função para criar o arquivo atualizado.py
-criar_atualizado_py()
 
 # Função para fechar o EXE se estiver em execução
 def fechar_exe_se_em_execucao(nome_exe):
@@ -155,11 +61,6 @@ def calcular_hash_arquivo(caminho_arquivo):
     except FileNotFoundError:
         return None
 
-# Função para encontrar o caminho do script atualizador
-def encontrar_caminho_atualizador():
-    return os.path.join(os.path.expanduser("~"), "Documents","Cadastro Telas", "atualizado.py")
-
-# Função para substituir o EXE corretamente na Área de Trabalho
 # Função para substituir o EXE corretamente na Área de Trabalho
 def substituir_exe():
     try:
@@ -179,11 +80,25 @@ def substituir_exe():
                     f.write(chunk)
             print(f"Novo EXE baixado e salvo como {caminho_exe_novo}")
 
-            # Iniciar o script de atualização
-            caminho_atualizador_exe = os.path.join(os.path.expanduser("~"), "Documents", "Cadastro Telas", "atualizado.exe")
-            subprocess.run([caminho_atualizador_exe])
+            # Definir o caminho do EXE original na Área de Trabalho
+            caminho_exe_atual = os.path.join(os.path.expanduser("~"), "Desktop", "Cadastro de Telas.exe")
 
-            # Encerrar o programa para permitir a substituição
+            # Localizando o arquivo 'atualizado.exe' empacotado
+            if getattr(sys, 'frozen', False):
+                # Diretório temporário onde o PyInstaller extrai os arquivos
+                bundle_dir = sys._MEIPASS
+            else:
+                # Diretório onde o script Python está rodando (se não estiver congelado)
+                bundle_dir = os.path.dirname(os.path.abspath(__file__))
+
+            # Caminho completo do 'atualizado.exe' empacotado
+            caminho_atualizador_exe = os.path.join(bundle_dir, 'atualizado.exe')
+
+            # Chamar o atualizador para substituir o EXE e passar os caminhos necessários
+            subprocess.Popen([caminho_atualizador_exe, caminho_exe_novo, caminho_exe_atual])
+
+            # Encerrar o programa principal para permitir a substituição
+            print("Encerrando o programa principal para permitir a substituição do EXE...")
             sys.exit()
 
         else:
@@ -945,7 +860,6 @@ def listar_telas(condicao=None):
                 tag
             )
             linha_alternada = not linha_alternada  # Alterna a cor para a próxima linha
-
 
 # Função para salvar o cadastro no banco criptografado
 def salvar_cadastro():

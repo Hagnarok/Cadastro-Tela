@@ -1,42 +1,67 @@
+# -*- coding: utf-8 -*-
 import os
 import shutil
 import time
 import psutil
+import tkinter as tk
+from tkinter import ttk
 
-# Fun√ß√£o para fechar o EXE se ele estiver em execu√ß√£o
+# FunÁ„o para fechar o EXE se ele estiver em execuÁ„o
 def fechar_exe_se_em_execucao(nome_exe):
     for proc in psutil.process_iter():
         try:
             if nome_exe.lower() in proc.name().lower():
-                print(f"Fechando o processo {nome_exe}...")
                 proc.terminate()
                 proc.wait()
                 time.sleep(2)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             pass
 
-def substituir_exe():
+# FunÁ„o para substituir o EXE
+def substituir_exe(progress):
     nome_exe = "Cadastro de Telas.exe"
     caminho_exe_area_trabalho = os.path.join(os.path.expanduser("~"), "Desktop", nome_exe)
     caminho_exe_novo = os.path.join(os.path.expanduser("~"), "Documents", "Cadastro Telas", "Cadastro de Telas Novo.exe")
 
     if os.path.exists(caminho_exe_novo):
-        # Fechar o EXE se estiver em execu√ß√£o
+        progress['value'] = 20
+        root.update_idletasks()
+
         fechar_exe_se_em_execucao(nome_exe)
+        
+        progress['value'] = 50
+        root.update_idletasks()
 
-        # Substituir o EXE antigo pelo novo
         shutil.move(caminho_exe_novo, caminho_exe_area_trabalho)
-        print(f"{nome_exe} foi substitu√≠do com sucesso na √°rea de trabalho.")
+        progress['value'] = 90
+        root.update_idletasks()
 
-        # Apagar o EXE novo da pasta Documentos
-        os.remove(caminho_exe_novo)
-
-        # Reiniciar o programa
         time.sleep(2)
         os.startfile(caminho_exe_area_trabalho)
 
+        time.sleep(1)
+        root.destroy()  # Fechar a janela apÛs a conclus„o
     else:
-        print("O novo EXE n√£o foi encontrado em Documentos.")
+        print("O novo EXE nao foi encontrado em Documentos.")
+        root.destroy()
+
+# Interface gr·fica com barra de progresso
+def iniciar_interface_atualizacao():
+    global root
+    root = tk.Tk()
+    root.title("Atualizando Programa")
+    root.geometry("400x100")
+    root.resizable(False, False)
+
+    label = tk.Label(root, text="Programa atualizando, aguarde...", font=("Arial", 12))
+    label.pack(pady=10)
+
+    progress = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
+    progress.pack(pady=10)
+
+    root.after(100, lambda: substituir_exe(progress))
+
+    root.mainloop()
 
 if __name__ == "__main__":
-    substituir_exe()
+    iniciar_interface_atualizacao()
