@@ -16,6 +16,9 @@ import psutil
 import time
 import subprocess
 import hashlib
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+import base64
 
 # Caminho para a pasta "Cadastro Telas" dentro de "Documentos"
 pasta_documentos = os.path.join(os.path.expanduser("~"), "Documents", "Cadastro Telas")
@@ -419,7 +422,7 @@ def cadastrar_tela():
             }
             id_counter += 1
 
-        salvar_cadastro()  # Salvar os dados no arquivo
+        salvar_cadastro_criptografado()  # Salvar os dados no arquivo
         messagebox.showinfo("Sucesso", f"Tela '{identificado}' com quantidade {quantidade}, preço R${preco:.2f} e condição '{condicao}' cadastrada ou atualizada.")
         # Limpar os campos de entrada
         entrada_tela.delete(0, tk.END)
@@ -481,7 +484,7 @@ def abrir_root_remocao():
             messagebox.showerror("Erro", "ID não encontrado.")
 
         # Salvar os dados atualizados
-        salvar_cadastro()
+        salvar_cadastro_criptografado()
         listar_telas()  # Atualizar a lista
         reiniciar_timer()  # Reiniciar o timer
         remocao_window.destroy()  # Fechar a janela de remoção
@@ -697,7 +700,7 @@ def abrir_root_formato():
         # Limpa a área de texto após salvar
         text_area.delete("1.0", tk.END)
         # Atualizar a interface
-        carregar_cadastro()
+        carregar_cadastro_criptografado()
         atualizar_label()
         listar_telas()
         fazer_backup_banco()
@@ -792,7 +795,7 @@ def abrir_root_edicao():
                     dados['condicao'] = nova_condicao
 
                     # Salvar as alterações no arquivo
-                    salvar_cadastro()  
+                    salvar_cadastro_criptografado()  
                     messagebox.showinfo("Sucesso", f"Tela ID {tela_id} atualizada com sucesso.")
                     edicao_window.destroy()  # Fecha a janela de edição
                     listar_telas()  # Atualiza a listagem
@@ -816,7 +819,7 @@ def print_selection():
 
 # Função para listar os dados na interface
 def listar_telas(condicao=None):
-    carregar_cadastro()  # Carregar o cadastro a partir do arquivo
+    carregar_cadastro_criptografado()  # Carregar o cadastro a partir do arquivo
     texto_listagem.delete(1.0, tk.END)  # Limpar a área de texto antes de exibir
     
     if not cadastrado:
@@ -862,41 +865,65 @@ def listar_telas(condicao=None):
             linha_alternada = not linha_alternada  # Alterna a cor para a próxima linha
 
 # Função para salvar o cadastro no banco criptografado
-def salvar_cadastro():
+from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
+import base64
+import sqlite3
+
+# Funções de Criptografia e Descriptografia
+def encrypt_data(data, key):
+    cipher = AES.new(key, AES.MODE_EAX)
+    nonce = cipher.nonce
+    ciphertext, tag = cipher.encrypt_and_digest(data.encode('utf-8'))
+    return base64.b64encode(nonce + ciphertext).decode('utf-8')
+
+def decrypt_data(enc_data, key):
+    enc_data = base64.b64decode(enc_data.encode('utf-8'))
+    nonce = enc_data[:16]
+    ciphertext = enc_data[16:]
+    cipher = AES.new(key, AES.MODE_EAX, nonce=nonce)
+    return cipher.decrypt(ciphertext).decode('utf-8')
+
+# Gera uma chave de 16 bytes (128 bits)
+key = get_random_bytes(16)
+
+# Função para salvar no banco de dados com criptografia
+def salvar_cadastro_criptografado(modelo, quantidade, preco, condicao, data_cadastro):
     try:
-        # Conecta ao banco de dados criptografado
         conn = sqlite3.connect('cadastro.db')
         cursor = conn.cursor()
 
-        # Cria a tabela se ela não existir
+        # Cria a tabela se não existir
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS cadastro (
                 id INTEGER PRIMARY KEY,
                 modelo TEXT,
-                quantidade INTEGER,
-                preco REAL,
+                quantidade TEXT,
+                preco TEXT,
                 condicao TEXT,
                 data_cadastro TEXT
             )
         ''')
 
-        # Insere ou atualiza os dados no banco de dados
-        for modelo_com_id, dados in cadastrado.items():
-            cursor.execute('''
-                INSERT OR REPLACE INTO cadastro (id, modelo, quantidade, preco, condicao, data_cadastro)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (dados['id'], modelo_com_id.split('_')[0], dados['quantidade'], dados['preco'], dados['condicao'], dados['data_cadastro']))
+        # Criptografa os dados
+        modelo_enc = encrypt_data(modelo, key)
+        quantidade_enc = encrypt_data(str(quantidade), key)
+        preco_enc = encrypt_data(str(preco), key)
+        condicao_enc = encrypt_data(condicao, key)
+        data_cadastro_enc = encrypt_data(data_cadastro, key)
 
-        # Salva (commita) as mudanças e fecha a conexão
+        # Insere os dados criptografados no banco de dados
+        cursor.execute('''
+            INSERT INTO cadastro (modelo, quantidade, preco, condicao, data_cadastro)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (modelo_enc, quantidade_enc, preco_enc, condicao_enc, data_cadastro_enc))
+
         conn.commit()
         conn.close()
-
-        print("Cadastro salvo com sucesso no banco de dados.")
-        atualizar_label()
-        fazer_backup_banco()
-
+        print("Cadastro salvo com criptografia!")
+        
     except Exception as e:
-        messagebox.showerror("Erro", f"Ocorreu um erro ao salvar o cadastro: {str(e)}")
+        print(f"Erro ao salvar cadastro: {str(e)}")
 
 # Função para fazer backup do banco de dados
 def fazer_backup_banco():
@@ -981,46 +1008,32 @@ def pesquisar_tela(event=None):  # Aceita um argumento opcional
             linha_alternada = not linha_alternada  # Alterna a cor para a próxima linha
 
 # Função para carregar os cadastros do arquivo
-def carregar_cadastro():
-    global cadastrado
-    cadastrado = {}
-
+def carregar_cadastro_criptografado():
     try:
         conn = sqlite3.connect('cadastro.db')
         cursor = conn.cursor()
 
-        # Cria a tabela se ela não existir
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS cadastro (
-                id INTEGER PRIMARY KEY,
-                modelo TEXT,
-                quantidade INTEGER,
-                preco REAL,
-                condicao TEXT,
-                data_cadastro TEXT
-            )
-        ''')
-
-        # Busca todos os cadastros no banco de dados
+        # Busca todos os cadastros
         cursor.execute('SELECT * FROM cadastro')
         rows = cursor.fetchall()
 
         for row in rows:
-            id_tela, modelo, quantidade, preco, condicao, data_cadastro = row
-            cadastrado[f"{modelo}_{id_tela}"] = {
-                'id': id_tela,
-                'quantidade': quantidade,
-                'preco': preco,
-                'condicao': condicao,
-                'data_cadastro': data_cadastro
-            }
+            id_tela, modelo_enc, quantidade_enc, preco_enc, condicao_enc, data_cadastro_enc = row
+
+            # Descriptografa os dados
+            modelo = decrypt_data(modelo_enc, key)
+            quantidade = decrypt_data(quantidade_enc, key)
+            preco = decrypt_data(preco_enc, key)
+            condicao = decrypt_data(condicao_enc, key)
+            data_cadastro = decrypt_data(data_cadastro_enc, key)
+
+            print(f"ID: {id_tela}, Modelo: {modelo}, Quantidade: {quantidade}, Preço: {preco}, Condição: {condicao}, Data: {data_cadastro}")
 
         conn.close()
 
-        atualizar_label()
-
     except Exception as e:
-        messagebox.showerror("Erro", f"Ocorreu um erro ao carregar o banco de dados: {e}")
+        print(f"Erro ao carregar cadastro: {str(e)}")
+
 
 cor_atual = 'white'
 fundo_label = '#ffffff'
@@ -1163,6 +1176,7 @@ def redimensionar_imagem(caminho, largura, altura):
     except FileNotFoundError:
         print(f"Imagem {caminho} não encontrada.")
         return None
+
 
 # Caminhos das imagens
 caminho_imagem_clara = encontrar_arquivo_no_executavel("sol.png")
@@ -1358,7 +1372,7 @@ for widget in root.winfo_children():
     if isinstance(widget, tk.Label) or isinstance(widget, tk.Entry):
         widget.config(fg=cor_fonte, bg=fundo_label)  # Atualiza o fundo
 
-carregar_cadastro()
+carregar_cadastro_criptografado()
 atualizar_label()
 fazer_backup_banco()
 listar_telas()
